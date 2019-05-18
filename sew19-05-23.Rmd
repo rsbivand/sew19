@@ -1,0 +1,1664 @@
+---
+title: "Progress in the R ecosystem for open source spatial analysis software"
+author: "Roger Bivand"
+date: "23 May 2019"
+output: 
+  beamer_presentation:
+    theme: metropolis
+    highlight: pygments
+    includes:
+      in_header: header.tex
+      keep_tex: true
+    latex_engine: xelatex
+bibliography: sew19.bib
+classoption: "aspectratio=169"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r size, echo=FALSE, results='hide'}
+knitr::knit_hooks$set(mysize = function(before, options, envir) {
+  if (before) 
+    return(options$size)
+})
+knitr::opts_chunk$set(prompt=TRUE)
+suppressMessages(library(extrafont))
+suppressMessages(loadfonts())
+```
+
+```{r set-options, echo=FALSE, results='hide'}
+options(width = 50)
+```
+
+## Outline
+
+- Introduction and background: why break stuff (why not)?
+
+- Data input/output and representation: movement from legacy **sp** to standards-compliant **sf** representation; coordinate reference systems; developments similar to `GeoPandas` and `Shapely` in Python
+
+- Spatial weights and measures of autocorrelation: software packages previously using the **sp** representation may add **sf** representation or replace **sp** with **sf**; **spdep** can use both for constructing spatial weights
+
+- Spatial regression: model estimation and handling split out from **spdep** to **spatialreg**; fewer reverse dependencies, quicker changes
+
+
+# Introduction
+
+## The R ecosystem for open source spatial analysis software
+
+- The R statistical programming language and environment has been used for analysing spatial data since its inception, partly building on its heritage from S and S-Plus.
+
+- When the conceptualisation of spatial data was introduced in the **sp** package, it was expected that some packages would adopt its classes. 
+
+- Some years later, adoption rates had picked up strongly, as had use of the **sp**-based packages **rgdal** for input/output and **rgeos** for geometric manipulation of vector data.
+
+- The packages depending on **sp** classes continue to require support as more adequate data representations are introduced in the **sf** and **stars** packages.
+
+## The `sf` package
+
+- The **sf** package proides the input/output and geometry manipulation functionalities found in **rgdal** and **rgeos**, and an alternative class representation for vector data based on the Simple Features standard [@unitsrj; @RJ-2018-009; @RJ-2018-075]
+
+- The **stars** package adds some facilities for handling spatio-temporal raster and vector data, building in part on work with the **spacetime** package.  
+
+- Finally, Pebesma and Bivand [-@pebesma+bivand:20] present a fuller picture of ongoing changes in the R spatial analysis ecosystem, going into more detail because Lovelace et al. [-@geocomp] provide an excellent introduction
+
+## Upstream geospatial software
+
+- In addition there are many changes taking place in upstream geospatial software that will impact typical workflows.  
+
+- For vector data, it is very likely that the legacy shapefile file format will be replaced, probably by the geopackage format.  
+
+- One reason for this is that GPKG is designed to support multibyte string encoding.  
+
+- In addition, the representations of spatial/coordinate reference systems are being modernised, leading to breaking changes in most software.
+
+## Visualization packages
+
+ - Newer visualization packages, such as **tmap**, **mapview** and **cartography**, give broader scope for data exploration and communication.  
+
+- A thorough overview of modelling and analysis packages shows the considerable range of approaches now available in contributed packages and other R code present in supplementary material to published papers.  
+
+- This provides a helpful mechanism supporting reproducible research and hands-on reviewing in which readers can read the code and scripts used in calculating the results presented in published work.
+
+## Package dependencies
+
+- Because contributed packages form an ecosystem, some packages are used by others in turn in dependency trees.  
+
+- Class representations of data are central, with the data frame conceptualisation shaping much of the whole R ecosystem.  
+
+- For the modelling infrastructure to perform correctly, the relationships between objects containing data and formula interfaces constructing model responses and matrices are crucial.  
+
+- Because both **sp** and **sf** provide similar interfaces, transition from **sp** to **sf** representations is convenient by design. 
+
+## Splitting the `spdep` package
+
+- The **spdep** package has been split into **spdep** for constructing spatial weights and exploratory spatial data analysis, and the new package **spatialreg** for spatial regression.  
+
+- At present **spatialreg** functions can also be accessed from the pre-split **spdep** code, but this deprecation period will be short; this reorganisation is similar in form to that taking place in PySAL.
+
+- The **spdep** and **spatialreg** packages have been adapted to accommodate data held in **sf** classes in addition to **sp** classes, so both approaches are viable.  
+
+- In order to retain backward compatibility, other central packages may choose to handle the coexistence of **sp** and **sf** classes in the same way. 
+
+## Splitting the `spdep` package
+
+- The first step taken was to add **sf** interfaces to existing **spdep** functions, mostly for creating neighbour objects (completed version 1.0-2 13 February)
+
+- The package split was announced as a  [\textcolor{mLightBrown}{github}](https://github.com/r-spatial/spdep/issues/31) issue on `r-spatial/spdep` and on [\textcolor{mLightBrown}{Twitter}](https://twitter.com/RogerBivand/status/1105023658341351424) on 11 March
+
+- With insight from Iñaki Ucar and Gábor Csárdi responding to my 9 March  [\textcolor{mLightBrown}{post}](https://stat.ethz.ch/pipermail/r-package-devel/2019q1/003590.html) on the `R-pkg-devel` mailing list, the reverse dependency functions were found using `pkgapi::map_package()`
+
+- The deprecated split packages (**spdep** 1.1-2 and **spatialreg** 1.1-3) were published 1 & 5 April (see [\textcolor{mLightBrown}{this post}](https://stat.ethz.ch/pipermail/r-sig-geo/2019-April/027230.html)); the **spdep** model functions will be made defunct shortly
+
+## Comparative studies
+
+- The performance of the spdep package implementations of global and local measures of spatial autocorrelation have been compared with other implementations by Bivand and Wong [-@Bivand2018].  
+
+- The spatial regression model fitting functions now in the spatialreg and sphet packages were compared with other implementations by Bivand and Piras [-@bivand+piras:15].  
+
+- Methods for computing the log determinant in spatial regression using maximum likelihood and Bayesian estimation methods were surveyed in Bivand et al. [-@bivandetal13].  
+
+- Bivand et al. [-@bivandetal17a] survey spatial multilevel model estimation approaches. 
+
+
+
+# Data input/output and representation 
+
+## Spatial data
+
+\begincols
+\begincol{0.48\textwidth}
+Spatial data typically combine position data in 2D (or 3D), attribute data and metadata related to the position data. Much spatial data could be called map data or GIS data. We collect and handle much more position data since global navigation satellite systems (GNSS) like GPS came on stream 20 years ago, earth observation satellites have been providing data for longer. ([\textcolor{mLightBrown}{Geocomputation with R}](https://geocompr.robinlovelace.net/) may be useful, as may [\textcolor{mLightBrown}{SDSR}](https://deploy-preview-20--keen-swartz-3146c4.netlify.com/)).
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+suppressPackageStartupMessages(library(osmdata))
+library(sf)
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+bbox <- opq(bbox = 'bergen norway')
+byb0 <- osmdata_sf(add_osm_feature(bbox, key = 'railway',
+  value = 'light_rail'))$osm_lines
+tram <- osmdata_sf(add_osm_feature(bbox, key = 'railway',
+  value = 'tram'))$osm_lines
+byb1 <- tram[!is.na(tram$name),]
+o <- intersect(names(byb0), names(byb1))
+byb <- rbind(byb0[,o], byb1[,o])
+```
+```{r, echo = TRUE, eval=FALSE, mysize=TRUE, size='\\tiny'}
+library(mapview)
+mapview(byb)
+```
+```{r, echo=FALSE, eval=TRUE, results='hide'}
+library(mapview)
+```
+
+
+```{r plot1, cache=TRUE, echo=FALSE, eval=TRUE, results='hide'}
+library(mapview)
+x <- mapview(byb)
+if (!dir.exists("sew19-05-23_files")) dir.create("sew19-05-23_files")
+if (!dir.exists("sew19-05-23_files/figure-beamer")) dir.create("sew19-05-23_files/figure-beamer")
+mapshot(x, file="plot1-1.png")
+file.copy("plot1-1.png", "sew19-05-23_files/figure-beamer")
+unlink("plot1-1.png")
+```
+\includegraphics[width=0.85\textwidth]{sew19-05-23_files/figure-beamer/plot1-1.png}
+\endcol
+\endcols
+
+## Data handling
+
+\begincols
+\begincol{0.48\textwidth}
+We can download monthly CSV files of [\textcolor{mLightBrown}{city bike}](https://bergenbysykkel.no/en/open-data) use, and manipulate the input to let us use the **stplanr** package to aggregate origin-destination data. One destination is in Oslo, some are round trips, but otherwise things are OK. We can use [\textcolor{mLightBrown}{CycleStreets}](www.cyclestreets.net) to route the volumes onto [\textcolor{mLightBrown}{OSM}](https://www.openstreetmap.org/copyright) cycle paths, via an API and API key. We'd still need to aggregate the bike traffic by cycle path segment for completeness.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, eval=FALSE, mysize=TRUE, cache=TRUE, size='\\tiny'}
+bike_fls <- list.files("../bbs")
+trips0 <- NULL
+for (fl in bike_fls) trips0 <- rbind(trips0,
+  read.csv(file.path("../bbs", fl), header=TRUE))
+trips0 <- trips0[trips0[, 8] < 6 & trips0[, 13] < 6,]
+trips <- cbind(trips0[,c(1, 4, 2, 9)], data.frame(count=1))
+from <- unique(trips0[,c(4,5,7,8)])
+names(from) <- substring(names(from), 7)
+to <- unique(trips0[,c(9,10,12,13)])
+names(to) <- substring(names(to), 5)
+stations0 <- st_as_sf(merge(from, to, all=TRUE),
+  coords=c("station_longitude", "station_latitude"))
+stations <- aggregate(stations0, list(stations0$station_id),
+  head, n=1)
+suppressWarnings(stations <- st_cast(stations, "POINT"))
+st_crs(stations) <- 4326
+od <- aggregate(trips[,-(1:4)], list(trips$start_station_id,
+  trips$end_station_id), sum)
+od <- od[-(which(od[,1] == od[,2])),]
+library(stplanr)
+od_lines <- od2line(flow=od, zones=stations, zone_code="Group.1",
+  origin_code="Group.1", dest_code="Group.2")
+Sys.setenv(CYCLESTREET="xXxXXxXxXxXxXxXxX")
+od_routes <- line2route(od_lines, "route_cyclestreet",
+  plan = "fastest")
+```
+\endcol
+\endcols
+
+## Data handling
+
+\begincols
+\begincol{0.48\textwidth}
+Origin-destination lines
+
+```{r plot3, cache=TRUE, echo=FALSE, eval=TRUE, results='hide'}
+od_lines <- readRDS("../od_lines.rds")
+x <- mapview(od_lines, alpha=0.2, lwd=(od_lines$x/max(od_lines$x))*10)
+mapshot(x, file="plot3-1.png")
+file.copy("plot3-1.png", "sew19-05-23_files/figure-beamer")
+unlink("plot3-1.png")
+```
+\includegraphics[width=0.95\textwidth]{sew19-05-23_files/figure-beamer/plot3-1.png}
+\endcol
+
+\begincol{0.48\textwidth}
+Routed lines along cycle routes
+
+```{r plot4, cache=TRUE, echo=FALSE, eval=TRUE, results='hide'}
+od_routes <- readRDS("../od_routes.rds")
+x <- mapview(od_routes, alpha=0.2, lwd=(od_lines$x/max(od_lines$x))*10)
+mapshot(x, file="plot4-1.png")
+file.copy("plot4-1.png", "sew19-05-23_files/figure-beamer")
+unlink("plot4-1.png")
+```
+\includegraphics[width=0.95\textwidth]{sew19-05-23_files/figure-beamer/plot4-1.png}
+
+\endcol
+\endcols
+
+
+
+## Vector data
+
+\begincols
+\begincol{0.48\textwidth}
+
+Spatial vector data is based on points, from which other geometries are constructed. Vector data is often also termed object-based spatial data. The light rail tracks are 2D vector data. The points themselves are stored as double precision floating point numbers, typically without recorded measures of accuracy (GNSS provides a measure of accuracy). Here, lines are constructed from points.
+
+\endcol
+\begincol{0.48\textwidth}
+
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+all(st_is(byb, "XY"))
+str(st_coordinates(st_geometry(byb)[[1]]))
+```
+
+\endcol
+\endcols
+
+
+## Representing spatial vector data in R (**sp**)
+
+\begincols
+\begincol{0.48\textwidth}
+
+The **sp** package was a child of its time, using S4 formal classes, and the best compromise we then had of positional representation (not arc-node, but hard to handle holes in polygons). If we coerse `byb` to the **sp** representation, we see the formal class structure. Input/output used OGR/GDAL vector drivers in the **rgdal** package, and topological operations used GEOS in the **rgeos** package.
+
+\endcol
+
+\begincol{0.48\textwidth}
+
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+library(sp)
+str(slot(as(st_geometry(byb), "Spatial"), "lines")[[1]])
+```
+
+
+\endcol
+\endcols
+
+## Representing spatial vector data in R (**sf**)
+
+
+\begincols
+\begincol{0.48\textwidth}
+
+The recent **sf** package bundles GDAL and GEOS (**sp** just defined the classes and methods, leaving I/O and computational geometry to other packages). **sf** used `data.frame` objects with one (or more) geometry column for vector data. The representation follows ISO 19125 (*Simple Features*), and has WKT (text) and WKB (binary) representations (used by GDAL and GEOS internally). The drivers include PostGIS and other database constructions permitting selection, and WFS for server APIs (**rgdal** does too, but requires more from the user).
+
+\endcol
+
+\begincol{0.48\textwidth}
+
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+strwrap(st_as_text(st_geometry(byb)[[1]]))
+```
+
+\endcol
+\endcols
+
+
+## Baseline WKT and PROJ4
+
+\begincols
+\begincol{0.48\textwidth}
+
+Spatial reference systems define how the geoid is viewed (prime meridian, ellipsoid, datum), and, if projected to the plane, where we are (central longitude, latitude, offsets, etc.). They also define the units - **sf** incorporates smart units handling. Projection (no datum change) and transformation are possible using PROJ and its `proj_api.h` interface directly (`rgdal::spTransform()` and `lwgeom::st_transform_proj()`), or through GDAL (`sf::st_transform()`). Migration to the new `proj.h` API has begun.
+
+\endcol
+
+\begincol{0.48\textwidth}
+
+```{r, echo = TRUE, mysize=TRUE, cache=TRUE, size='\\tiny'}
+(WKT <- st_crs(byb))
+strwrap(gsub(",", ", ", st_as_text(WKT)))
+byb_utm <- st_transform(byb, crs=32632)
+st_crs(byb_utm)
+```
+
+\endcol
+\endcols
+
+
+## Escaping the WGS84 hub: PROJ 6 and OGC WKT2
+
+\begincols
+\begincol{0.48\textwidth}
+
+Changes in the legacy PROJ representation and WGS84 transformation hub have been coordinated through the [\textcolor{mLightBrown}{GDAL barn raising}](https://gdalbarn.com/) initiative. The syntax is changing to pipelines, but crucially WGS84 will often cease to be the pivot for moving between datums. A new OGC WKT is coming, and an SQLite EPSG file database is replacing CSV files. SRS will begin to support 3D by default, adding time too as SRS change. 
+
+\endcol
+
+\begincol{0.48\textwidth}
+
+```{r, echo = TRUE, mysize=TRUE, cache=TRUE, size='\\tiny'}
+head(st_coordinates(st_geometry(byb)[[1]]), n=1)
+x <- system(paste("echo 5.333375 60.30436 |", 
+  "proj +proj=pipeline +ellps=WGS84", 
+  "+step `projinfo -o PROJ -q epsg:32632`"), 
+  intern=TRUE)
+as.numeric(strsplit(x, "\\t")[[1]])
+head(st_coordinates(st_geometry(byb_utm)[[1]]), n=1)
+```
+
+\endcol
+\endcols
+
+
+## Representing spatial raster data in R (**sf** and **stars**)
+
+\begincols
+\begincol{0.48\textwidth}
+The new **stars** - Scalable, Spatiotemporal Tidy Arrays - package started looking at array structures and has built-in proxy data. Like **sf**, the development of **stars** has been supported by the R Consortium, and **stars** uses the infrastructure of **sf** to use GDAL for input/output and manipulation. In **sf**, the interface to the C++ GDAL library is based on **Rcpp**, which was not available when **rgdal** was written. The [\textcolor{mLightBrown}{LandGIS ESA CCI land cover series}](https://landgis.opengeohub.org/#/?base=Stamen%20(OpenStreetMap)&center=60.4478,5.3352&zoom=11&opacity=80&layer=lcv_land.cover_esacci.lc.l4_c&time=2015) may be downloaded (API coming), and displayed.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, cache=TRUE, size='\\tiny'}
+fl <- "../../bml19/ESACCI-LC-L4-LCCS-Map-300m-P1Y-1992_2015-v2.0.7.tif"
+library(stars)
+LUC_stars <- read_stars(fl, proxy=TRUE)
+LUC_stars
+```
+\endcol
+\endcols
+
+## Representing spatial raster data in R (**sf** and **stars**)
+
+\begincols
+\begincol{0.48\textwidth}
+The **stars** package, with links to the **raster** package, is developing fast, and permits spatial subsets from a proxy object using an **sf** bounding box, here from the downloaded > 1GB global spatio-temporal LULC climate modelling file. We can add the correct RGB colours, but not yet the list of LULC categories ([\textcolor{mLightBrown}{see also this issue on github}](https://github.com/r-spatial/mapview/issues/208))
+
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, cache=TRUE, size='\\tiny'}
+LUC_stars1 <- st_as_stars(LUC_stars[st_bbox(byb),,,c(1,24)])
+legs <- read.csv("../ESACCI-LC-Legend.csv", header = TRUE, sep = ";")
+```
+```{r, echo = TRUE, eval=FALSE, mysize=TRUE, size='\\tiny'}
+plot(LUC_stars1, rgb=legs, main="")
+```
+```{r plot2, cache=TRUE, echo=FALSE, eval=TRUE, results='hide'}
+png("sew19-05-23_files/figure-beamer/plot2-1.png", bg = "transparent")
+plot(LUC_stars1, rgb=legs, main="")
+dev.off()
+```
+\includegraphics[width=0.9\textwidth]{sew19-05-23_files/figure-beamer/plot2-1.png}
+\endcol
+\endcols
+
+# Spatial weights and measures of autocorrelation
+
+## Neighbours
+
+- The **spdep** package provides an `nb` class for neighbours, a list of length equal to the number of observations, with integer vector components. 
+
+- No-neighbours are encoded as an integer vector with a single element `0L`, and observations with neighbours as sorted integer vectors containing values in `1L:n` pointing to the neighbouring observations. 
+
+- This is a typical row-oriented sparse representation of neighbours. **spdep** provides many ways of constructing `nb` objects, and the representation and construction functions are widely used in other packages. 
+
+## Weights
+
+- **spdep** builds on the `nb` representation (undirected or directed graphs) with the `listw` object, a list with three components, an `nb` object, a matching list of numerical weights, and a single element character vector containing the single letter name of the way in which the weights were calculated. 
+
+- The most frequently used approach in the social sciences is calculating weights by row standardization, so that all the non-zero weights for one observation will be the inverse of the cardinality of its set of neighbours (`1/card(nb[[i]])`).
+
+## Data set (`sf` format)
+
+\begincols
+\begincol{0.48\textwidth}
+We will be using election data from the 2015 Polish Presidential election in this chapter, with 2495 municipalities and Warsaw boroughs, and complete count data from polling stations aggregated to these areal units. The data are an `sf` object:
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+library(sf)
+```
+```{r, echo = TRUE, mysize=TRUE, cache=TRUE, size='\\tiny'}
+data(pol_pres15, package="spDataLarge")
+head(pol_pres15[, c(1, 4, 6)])
+```
+\endcol
+\endcols
+
+## The spdep/spatialreg split
+
+- Between early 2002 and April 2019, **spdep** contained functions for constructing and handling neighbour and spatial weights objects, tests for spatial autocorrelation, and model fitting functions. 
+
+- The latter have been split out into **spatialreg**, and will be discussed in the next section. 
+
+- **spdep** now accommodates objects represented using **sf** classes and **sp** classes directly, going beyond the explorations made in [\textcolor{mLightBrown}{this vignette}](https://cran.r-project.org/web/packages/spdep/vignettes/nb_sf.html).
+
+## Contiguous neighbours
+
+\begincols
+\begincol{0.48\textwidth}
+The `poly2nb()` function in **spdep** takes the boundary points making up the polygon boundaries in the object passed as the `pl=` argument. For each observation checks whether at least one (`queen=TRUE`, default), or at least two (rook, `queen=FALSE`) points are within `snap=` distance units of each other. The distances are planar in the raw coordinate units, ignoring geographical projections. Once the required number of sufficiently close points is found, the search is stopped.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+suppressPackageStartupMessages(library(spdep))
+```
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+system.time(nb_q <- poly2nb(pol_pres15, queen=TRUE))
+```
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+nb_q
+```
+\endcol
+\endcols
+
+
+## Contiguous neighbours
+
+\begincols
+\begincol{0.48\textwidth}
+Pre-finding candidate contiguous neighbours may be helpful with larger objects, by finding intersecting bounding boxes, removing self-intersections and duplicate intersections (contiguities are by definition symmetric, if `i` is a neighbour of `j`, then `j` is a neighbour of `i`); the `foundInBox=` argument is used.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+f <- function(x) {
+  bb <- st_bbox(x)
+  mat <- cbind(c(bb[1], bb[1], bb[3], bb[3], bb[1]),
+               c(bb[2], bb[4], bb[4], bb[2], bb[2]))
+  st_polygon(list(mat))
+}
+system.time({
+  fB1 <- st_intersects(st_as_sfc(lapply(st_geometry(pol_pres15), f)))
+  fB1a <- lapply(seq_along(fB1), function(i) fB1[[i]][fB1[[i]] > i])
+  fB1a <- fB1a[-length(fB1a)]
+  nb_sf_q1 <- poly2nb(pol_pres15, queen=TRUE, foundInBox=fB1a)
+})
+```
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+all.equal(nb_q, nb_sf_q1, check.attributes=FALSE)
+```
+\endcol
+\endcols
+
+## Exchange of GAL files
+
+\begincols
+\begincol{0.48\textwidth}
+Neighbour objects may be exported and imported in GAL format for exchange with other software, using `write.nb.gal()` and `read.gal()`. Using **reticulate**, it is possible to interoperate with the PySAL family of Python packages, first **libpysal** providing the basic weights handling infrastructure. As we can see, the percentage of non-zero neighbours is the same in both software systems.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+tf <- tempfile(fileext=".gal")
+write.nb.gal(nb_q, tf)
+```
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+library(reticulate)
+use_python(python='/usr/bin/python3')
+np <- import("numpy")
+libpysal <- import("libpysal")
+nb_gal_ps <- libpysal$io$open(tf)$read()
+nb_gal_ps$pct_nonzero
+```
+\endcol
+\endcols
+
+## Weights specification
+
+\begincols
+\begincol{0.48\textwidth}
+Once neighbour objects are available, further choices need to made in specifying the weights objects. The `nb2listw()` function is used to create a `listw` weights object with an `nb` object, a matching list of weights vectors, and a style specification. Because handling no-neighbour observations now begins to matter, the `zero.policy=` argument is introduced. By default, this is `FALSE`, indicating that no-neighbour observations will cause an error, as the spatially lagged value for an observation with no neighbours is not available. 
+\endcol
+
+\begincol{0.48\textwidth}
+By convention, zero is substituted for the lagged value, as the cross product of a vector of zero-valued weights and a data vector, hence the name of `zero.policy`.
+
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+args(nb2listw)
+```
+\endcol
+\endcols
+
+## Weights specification
+
+\begincols
+\begincol{0.48\textwidth}
+We will be using the helper function `spweights.constants()` below to show some consequences of varing style choices. It returns constants for a `listw` object, $n$ is the number of observations, `n1` to `n3` are $n-1, \ldots$, `nn` is $n^2$ and $S_0$, $S_1$ and $S_2$ are constants, $S_0$ being the sum of the weights. There is a full discussion of the constants in Bivand and Wong [-@Bivand2018].
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+args(spweights.constants)
+```
+\endcol
+\endcols
+
+## Weights specification
+
+\begincols
+\begincol{0.48\textwidth}
+The `"B"` binary style gives a weight of unity to each neighbour relationship, and typically upweights units with no boundaries on the edge of the study area.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+lw_q_B <- nb2listw(nb_q, style="B")
+unlist(spweights.constants(lw_q_B))
+```
+\endcol
+\endcols
+
+## Weights specification
+
+\begincols
+\begincol{0.48\textwidth}
+The `"W"` row-standardized style upweights units around the edge of the study area that necessarily have fewer neighbours. This style first gives a weight of unity to each neighbour relationship, then divides these weights by the per unit sums of weights. Naturally this leads to division by zero where there are no neighbours, a not-a-number result, unless the chosen policy is to permit no-neighbour observations. We can see that $S_0$ is now equal to $n$.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+lw_q_W <- nb2listw(nb_q, style="W")
+unlist(spweights.constants(lw_q_W))[c(1,6:8)]
+```
+\endcol
+\endcols
+
+```{r, echo=FALSE, results='hide'}
+broom_ok <- TRUE
+glance_htest <- function(ht) c(ht$estimate, "Std deviate"=unname(ht$statistic))
+```
+
+## Global tests for autocorrelation (Morans I)
+
+\begincols
+\begincol{0.48\textwidth}
+The implementation of Moran's $I$ in **spdep** in the `moran.test()` function takes a vector of values `x=` and a `listw` object, and returns a list of `htest` (hypothesis test) objects defined in the **stats** package. The `randomisation=` argument indicates the underlying analytical approach used for calculating the variance of the measure.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+args(moran.test)
+```
+\endcol
+\endcols
+
+## Global tests for autocorrelation (Morans I)
+
+\begincols
+\begincol{0.48\textwidth}
+The default for the `randomisation=` argument is `TRUE`, but here we will simply show that the test under normality is the same as a test of least squares residuals with only the intercept used in the mean model. The spelling of randomisation is that of Cliff and Ord [-@cliff+ord:73].
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+mt <- moran.test(pol_pres15$I_turnout, listw=lw_q_B, 
+                 randomisation=FALSE)
+if (broom_ok) broom::tidy(mt)[,1:4] else glance_htest(mt)
+```
+\endcol
+\endcols
+
+## Global tests for autocorrelation (Morans I)
+
+\begincols
+\begincol{0.48\textwidth}
+The `lm.morantest()` function also takes a `resfun=` argument to set the function used to extract the residuals used for testing, and clearly lets us model other salient features of the response variable [@cliff+ord:81, p. 203].
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+args(lm.morantest)
+```
+\endcol
+\endcols
+
+## Global tests for autocorrelation (Morans I)
+
+\begincols
+\begincol{0.48\textwidth}
+To compare with the standard test, we are only using the intercept here, and as can be seen, the results are the same.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+ols <- lm(I_turnout ~ 1, pol_pres15)
+lmt <- lm.morantest(ols, listw=lw_q_B)
+if (broom_ok) broom::tidy(lmt)[,1:4] else glance_htest(lmt)
+```
+\endcol
+\endcols
+
+
+## Global tests for autocorrelation (Morans I)
+
+\begincols
+\begincol{0.48\textwidth}
+The only difference between tests under normality and randomisation is that an extra term is added if the kurtosis of the variable of interest indicates a flatter or more peaked distribution, where the measure used is the classical measure of kurtosis.
+
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+all.equal(3+e1071::kurtosis(pol_pres15$I_turnout, type=1),
+          moran(pol_pres15$I_turnout, listw=lw_q_B, 
+                n=nrow(pol_pres15), S0=Szero(lw_q_B))$K)
+```
+\endcol
+
+\begincol{0.48\textwidth}
+Under the default randomisation assumption of analytical randomisation, the results are largely unchanged.
+
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+mtr <- moran.test(pol_pres15$I_turnout, listw=lw_q_B)
+if (broom_ok) (tmtr <- broom::tidy(mtr)[,1:4]) else (tmtr <- glance_htest(mtr))
+```
+\endcol
+\endcols
+
+## Global tests for autocorrelation (Morans I)
+
+\begincols
+\begincol{0.48\textwidth}
+The PySAL **esda** package contains the `Moran` function reporting the same results, here under randomisation. The function returns results under normality, randomisation and by permutation simulation. Similar compatisons may be made for other global measures; for details see Bivand and Wong [-@Bivand2018].
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+esda <- import("esda")
+np$random$seed(1L)
+mi <- esda$Moran(pol_pres15$I_turnout, nb_gal_ps, transformation="B",
+                 permutations=0L, two_tailed=FALSE)
+all.equal(c(mi$I, mi$EI, mi$VI_rand, mi$z_rand), 
+          unname(do.call("c", tmtr)))
+```
+\endcol
+\endcols
+
+
+## Local tests for autocorrelation (Morans I)
+
+\begincols
+\begincol{0.48\textwidth}
+Bivand and Wong [-@Bivand2018] discuss issues impacting the use of local indicators, such as local Moran's $I$ and local Getis-Ord $G$. Some issues affect the calculation of the local indicators, others inference from their values. Because $n$ statistics may be being calculated from the same number of observations, there are multiple comparison problems that need to be addressed. Although the apparent detection of hotspots from values of local indicators has been quite widely adopted, it remains fraught with difficulty because adjustment of the inferential basis to accommodate multiple comparisons is not often chosen,
+\endcol
+
+\begincol{0.48\textwidth}
+ and as in the global case, mis-specification also remains a source of confusion. Further, interpreting local spatial autocorrelation in the presence of global spatial autocorrelation is challenging [@ord+getis:01; @tiefelsdorf:02; @bivandetal:09].
+ 
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+args(localmoran)
+```
+\endcol
+\endcols
+
+
+## Local tests for autocorrelation (Morans I)
+
+\begincols
+\begincol{0.48\textwidth}
+In order to compare the results from `localmoran()` with the PySAL function in **esda**, we need first to re-run dividing by $n-1$ instead of $n$ in parts of the calculation, by setting the argument `mlvar=FALSE`.
+
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+locm_nml <- localmoran(pol_pres15$I_turnout, listw=lw_q_B, 
+                       alternative="two.sided", mlvar=FALSE)
+```
+\endcol
+
+\begincol{0.48\textwidth}
+Once this is done, the local estimates of Moran's $I$ agree within machine precision.
+
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+np$random$seed(1L)
+loc_I_ps <- esda$Moran_Local(pol_pres15$I_turnout, nb_gal_ps, 
+                             transformation="B", permutations=0L)
+all.equal(unname(locm_nml[,1]), c(loc_I_ps$Is))
+```
+\endcol
+\endcols
+
+## Local spatial heteroscedasticity (LOSH) statistic
+
+\begincols
+\begincol{0.48\textwidth}
+Local spatial heteroscedasticity (LOSH) statistics were introduced fairly recently, and an implementation was contributed to **spdep** even more recently, so there is as yet little experience with the approach [@ord+getis12]. It has been extended to provide bootstrap p-values for the measures of heterogeneity [@xuetal14]. The `a=` argument takes a default value of $2$, giving a Chi-squared interpretation to output.
+
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+args(LOSH)
+```
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+lh <- LOSH(pol_pres15$I_turnout, listw=lw_q_B)
+```
+\endcol
+
+\begincol{0.48\textwidth}
+It is also possible to map local spatially weighted mean values derived from the local measures, showing a smoothing effect
+
+```{r plot5, cache=TRUE, echo=FALSE, eval=TRUE, results='hide'}
+pol_pres15$x_bar_i <- lh[,5]
+library(tmap)
+Sys.setenv(PROJ_LIB="/usr/local/share/proj")
+png("sew19-05-23_files/figure-beamer/plot5-1.png", height=600, bg = "transparent")
+tm_shape(pol_pres15) + tm_fill(c("I_turnout", "x_bar_i"), title="Turnout", n=6, style="fisher") + tm_facets(free.scales=FALSE) + tm_borders(lwd=0.3, alpha=0.4) + tm_layout(panel.labels=c("Turnout", "Weighted means"), bg.color="transparent")
+dev.off()
+```
+\includegraphics[width=0.75\textwidth]{sew19-05-23_files/figure-beamer/plot5-1.png}
+\endcol
+\endcols
+
+
+# Spatial regression
+
+## Spatial regression with spatial weights
+
+- Spatial autoregression models using spatial weights matrices were described in some detail using maximum likelihood estimation some time ago [@cliff+ord:73; @cliff+ord:81]. 
+
+- A family of models were elaborated in spatial econometric terms extending earlier work, and in many cases using the simultaneous autoregressive framework and row standardization of spatial weights [@a88]. 
+
+- The simultaneous  and conditional autoregressive frameworks can be compared, and both can be supplemented using case weights to reflect the relative importance of different observations [@WallerGotway:2004].
+
+## Boston hedonic house value air pollution data set
+
+- Here we shall use the Boston housing data set, which has been restructured and furnished with census tract boundaries [@bivand17]. 
+
+- The original data set used 506 census tracts and a hedonic model to try to estimate willingness to pay for clean air. 
+
+- The response was constructed from counts of ordinal answers to a 1970 census question about house value; the response is left and right censored in the census source. 
+
+- The key covariate was created from a calibrated meteorological model showing the annual nitrogen oxides (NOX) level for a smaller number of model output zones. 
+
+- The numbers of houses responding also varies by tract and model output zone. 
+
+## Boston hedonic house value air pollution data set
+
+\begincols
+\begincol{0.48\textwidth}
+We can start by reading in the 506 tract data set from **spData**, and creating a contiguity neighbour object and from that again a row standardized spatial weights object. If we examine the median house values, we find that they have been assigned as missing values, and that 17 tracts are affected.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+library(sf)
+```
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+suppressWarnings(boston_506 <- st_read(system.file(
+                                  "shapes/boston_tracts.shp", 
+                                  package="spData")[1]))
+nb_q <- spdep::poly2nb(boston_506)
+lw_q <- spdep::nb2listw(nb_q, style="W")
+```
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+table(boston_506$censored)
+```
+\endcol
+\endcols
+
+## Boston hedonic house value air pollution data set
+
+\begincols
+\begincol{0.48\textwidth}
+Next, we can subset to the remaining 489 tracts with non-censored house values, and the neighbour object to match. The neighbour object now has one observation with no neighbours.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+boston_489 <- boston_506[!is.na(boston_506$median),]
+nb_q_489 <- spdep::poly2nb(boston_489)
+lw_q_489 <- spdep::nb2listw(nb_q_489, style="W", zero.policy=TRUE)
+```
+\endcol
+\endcols
+
+
+
+## Boston hedonic house value air pollution data set
+
+\begincols
+\begincol{0.48\textwidth}
+The `NOX_ID` variable specifies the upper level aggregation, letting us aggregate the tracts to air pollution model output zones. We can create aggregate neighbour and row standardized spatial weights objects, and aggregate the `NOX` variable taking means, and the `CHAS` Charles River dummy variable for observations on the river.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+agg_96 <- list(as.character(boston_506$NOX_ID))
+boston_96 <- aggregate(boston_506[, "NOX_ID"], by=agg_96, 
+                       unique)
+boston_96 <- st_cast(boston_96, "MULTIPOLYGON")
+nb_q_96 <- spdep::poly2nb(boston_96)
+lw_q_96 <- spdep::nb2listw(nb_q_96)
+boston_96$NOX <- aggregate(boston_506$NOX, agg_96, mean)$x
+boston_96$CHAS <- aggregate(as.integer(boston_506$CHAS)-1, 
+                            agg_96, max)$x
+```
+\endcol
+\endcols
+
+## Boston hedonic house value air pollution data set
+
+\begincols
+\begincol{0.48\textwidth}
+The response is aggregated using the `weightedMedian()` function in **matrixStats**, and midpoint values for the house value classes. Counts of houses by value class were punched to check the published census values, which can be replicated using `weightedMedian()` at the tract level. Here we find two output zones with calculated weighted medians over the upper census question limit of USD 50,000, and remove them subsequently as they also are affected by not knowing the appropriate value to insert for the top class by value.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+nms <- names(boston_506)
+ccounts <- 23:31
+for (nm in nms[c(22, ccounts, 36)]) {
+  boston_96[[nm]] <- aggregate(boston_506[[nm]], 
+                               agg_96, sum)$x
+}
+br2 <- c(3.50,  6.25,  8.75, 12.50, 17.50, 22.50, 
+         30.00, 42.50, 60.00)*1000
+counts <- as.data.frame(boston_96)[, nms[ccounts]]
+f <- function(x) matrixStats::weightedMedian(x=br2, w=x, 
+                                        interpolate=TRUE)
+boston_96$median <- apply(counts, 1, f)
+is.na(boston_96$median) <- boston_96$median > 50000
+summary(boston_96$median)
+```
+\endcol
+\endcols
+
+## Boston hedonic house value air pollution data set
+
+\begincols
+\begincol{0.48\textwidth}
+Before subsetting, we aggregate the remaining covariates by weighted mean using the tract population counts punched from the census [@bivand17]. We now have two data sets each at the lower, census tract level and the upper, air pollution model output zone level, one including the censored observations, the other excluding them.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+POP <- boston_506$POP
+f <- function(x) matrixStats::weightedMean(x[,1], x[,2])
+for (nm in nms[c(9:11, 14:19, 21, 33)]) {
+  s0 <- split(data.frame(boston_506[[nm]], POP), agg_96)
+  boston_96[[nm]] <- sapply(s0, f)
+}
+```
+```{r, echo = TRUE, cache=TRUE, mysize=TRUE, size='\\tiny'}
+boston_94 <- boston_96[!is.na(boston_96$median),]
+nb_q_94 <- spdep::subset.nb(nb_q_96, !is.na(boston_96$median))
+lw_q_94 <- spdep::nb2listw(nb_q_94, style="W")
+```
+\endcol
+\endcols
+
+
+## Boston hedonic house value air pollution data set
+
+\begincols
+\begincol{0.48\textwidth}
+In order to try out some of the variant models, we need to remove the no-neighbour observations from the tract level, and from the model output zone aggregated level, in two steps as reducing the tract level induces a no-neighbour outcome at the model output zone level.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+oo <- aggregate(boston_489[,"NOX_ID"], list(boston_489$NOX_ID), 
+                unique)
+boston_94a <- st_cast(oo, "MULTIPOLYGON")
+nb_q_94a <- spdep::poly2nb(boston_94a)
+oo <- which(spdep::card(nb_q_94a) == 0)
+NOX_ID_no_neighs <- boston_94a$NOX_ID[oo]
+oo <- is.na(match(boston_489$NOX_ID, NOX_ID_no_neighs))
+boston_487 <- boston_489[oo,]
+oo <- aggregate(boston_487[, "NOX_ID"], list(ids=boston_487$NOX_ID), 
+                unique)
+boston_93 <- st_cast(oo, "MULTIPOLYGON")
+row.names(boston_93) <- as.character(boston_93$NOX_ID)
+oo <- unique(as.character(boston_93$NOX_ID))
+nb_q_93 <- spdep::poly2nb(boston_93, row.names=oo)
+```
+\endcol
+\endcols
+
+
+## Boston hedonic house value air pollution data set
+
+\begincols
+\begincol{0.48\textwidth}
+The original model related the log of median house values by tract to the square of NOX values, including other covariates usually related to house value by tract, such as aggregate room counts, aggregate age, ethnicity, social status, distance to downtown and to the nearest radial road, a crime rate, and town-level variables reflecting land use (zoning, industry), taxation and education [@bivand17]. This structure will be used here to exercise issues raised in fitting spatial regression models, including the presence of multiple levels.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+form <- formula(log(median) ~ CRIM + ZN + INDUS + CHAS + 
+                I((NOX*10)^2) + I(RM^2) + AGE + log(DIS) + 
+                log(RAD) + TAX + PTRATIO + I(BB/100) + 
+                log(I(LSTAT/100)))
+```
+\endcol
+\endcols
+
+## Spatial regression
+
+- In trying to model these spatial processes, we may choose to model the spatial autocorrelation in the residual with a spatial error model (SEM). 
+
+- If the processes in the covariates and the response match, we should find little difference between the coefficients of a least squares and a SEM, but very often they diverge, suggesting that a Hausman test for this condition should be employed [@pace+lesage:08]. 
+
+- This may be related to earlier discussions of a spatial equivalent to the unit root and cointegration where spatial processes match [@fingleton:99].
+
+
+## Spatial regression
+
+- Work reviewed by Mur and Angulo [-@mur+angulo:06] on the Durbin model, including the spatially lagged covariates in the model, permits a shared spatial process to be viewed and tested for as a Common Factor [@burridge:81; @bivand:84]. 
+
+- The inclusion of spatially lagged covariates lets us check whether the same spatial process is manifest in the response and the covariates (SEM), whether they are different processes, or whether no process is detected. 
+
+- A model with a spatial process in the response only is termed a spatial lag model (SLM, often SAR - spatial autoregressive), and with different processes in the response and covariates a spatial Durbin model (SDM) [@lesage+pace:09].
+
+
+## Spatial regression
+
+- If we extend this family with processes in the covariates and the residual, we get  a spatial error Durbin model (SDEM). 
+
+- If it is chosen to admit a spatial process in the residuals in addition to a spatial process in the response, again two models are formed, a general nested model (GNM) nesting all the others, and a model without spatially lagged covariates (SAC, also known as SARAR). 
+
+- If neither the residuals nor the residual are modelled with spatial processes, spatially lagged covariates may be added to a linear model, as a spatially lagged X model (SLX) [@elhorst:10; @bivand:12; @halleck-vega+elhorst:15].
+
+
+## Spatial regression
+
+- Although making predictions for new locations for which covariates are observed was raised as an issue some time ago, it has many years to make progress in reviewing the possibilities [@bivand:02; @goulardetal:17]. 
+
+- The prediction method for SLM, SDM, SEM, SDEM, SAC and GNM models fitted with maximum likelihood were contributed as a Google Summer of Coding project by Martin Gubri. 
+
+- This work, and work on similar models with missing data [@suesse:18] is also relevant for exploring censored median house values in the Boston data set. 
+
+- Work on prediction also exposed the importance of the reduced form of these models, in which the spatial process in the response interacts with the regression coefficients in the SLM, SDM, SAC and GNM models. 
+
+
+## Spatial regression
+
+- The consequence of these interactions is that a unit change in a covariate will only impact the response as the value of the regression coefficient if the spatial coefficient of the lagged response is zero. 
+
+- Where it is non-zero, global spillovers, impacts, come into play, and these impacts should be reported rather than the regression coefficients [@lesage+pace:09; @elhorst:10; @bivand:12; @halleck-vega+elhorst:15]. 
+
+- Local impacts may be reported for SDEM and SLX models, using linear combination to calculate standard errors for the total impacts of each covariate (sums of coefficients on the covariates and their spatial lags).
+
+
+## Spatial regression
+
+- Current work in the **spatialreg** package is focused on refining the handling of spatially lagged covariates using a consistent `Durbin=` argument taking either a logical value or a formula giving the subset of covariates to add in spatially lagged form. 
+
+- There is a speculation that some covariates, for example some dummy variables, should not be added in spatially lagged form. 
+
+- This then extends to handling these included spatially lagged covariates appropriately in calculating impacts. 
+
+- This work applies to cross-sectional models fitted using MCMC or maximum likelihood, and will offer facilities to spatial panel models.
+
+
+## Spatial regression
+
+- It is worth mentioning the almost unexplored issues of functional form assumptions, for which flexible structures are useful, including spatial quantile regression presented in the **McSpatial** package [@mcmillen:13]. 
+
+- There are further issues with discrete response variables, covered by some functions in **McSpatial**, and in the **spatialprobit** and **ProbitSpatial** packages [@RJ-2013-013; @MARTINETTI201730]; the MCMC implementations of the former are based on LeSage and Pace [-@lesage+pace:09]. 
+
+- Finally, Wagner and Zeileis [-@wagner+zeileis:19] show how an SLM model may be used in the setting of recursive partitioning, with an implementation using `spatialreg::lagsarlm()` in the **lagsarlmtree** package.
+
+## Estimators
+
+ - The review of cross-sectional maximum likelihood and generalized method of moments (GMM) estimators in **spatialreg** and **sphet** for spatial econometrics style spatial regression models by Bivand and Piras [-@bivand+piras:15] is still largely valid.  
+
+- In the review, estimators in these R packages were compared with alternative implementations available in other programming languages elsewhere.  
+
+- The review did not cover Bayesian spatial econometrics style spatial regression.
+
+## Maximum likelihood
+
+\begincols
+\begincol{0.48\textwidth}
+For models with single spatial coefficients (SEM and SDEM using `errorsarlm()`, SLM and SDM using `lagsarlm()`), the methods initially described by Ord [-@ord:75] are used. Both estimating functions take similar arguments, where the first two, `formula=` and `data=` are shared by most model estimating functions. The third argument is a `listw` spatial weights object, while `na.action=` behaves as in other model estimating functions if the spatial weights can reasonably be subsetted to avoid observations with missing values. 
+\endcol
+
+\begincol{0.48\textwidth}
+The `weights=` argument may be used to provide weights indicating the known degree of per-observation variability in the variance term - this is not available for `lagsarlm()`.
+
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+suppressPackageStartupMessages(library(spatialreg))
+args(errorsarlm)
+```
+\endcol
+\endcols
+
+## Maximum likelihood
+
+\begincols
+\begincol{0.48\textwidth}
+The `Durbin=` argument replaces the earlier `type=` and `etype=` arguments, and if not given is taken as `FALSE`. If given, it may be `FALSE`, `TRUE` in which case all spatially lagged covariates are included, or a one-sided formula specifying which spatially lagged covariates should be included. The `method=` argument gives the method for calculating the log determinant term in the log likelihood function, and defaults to `"eigen"`, suitable for moderate sized data sets.  
+\endcol
+
+\begincol{0.48\textwidth}
+The `interval=` argument gives the bounds of the domain for the line search using `stats::optimize()` used for finding the spatial coefficient. The `control=` argument takes a list of control values to permit more careful adjustment of the running of the estimation function.
+
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+args(lagsarlm)
+```
+\endcol
+\endcols
+
+## Maximum likelihood
+
+\begincols
+\begincol{0.48\textwidth}
+The `sacsarlm()` function may take second spatial weights and interval arguments if the spatial weights used to model the two spatial processes in the SAC and GNM specifications differ. By default, the same spatial weights are used. By default, `stats::nlminb()` is used for numerical optimization, using a heuristic to choose starting values.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+args(sacsarlm)
+```
+\endcol
+\endcols
+
+## Maximum likelihood
+
+\begincols
+\begincol{0.48\textwidth}
+Standard methods for fitted models are provided, such as `summary()`. The `Nagelkerke=` argument permits the return of a value approximately corresponding to a coefficient of determination, although the summary method anyway provides the value of `stats::AIC()` because a `stats::logLik()` method is provided for `"sarlm"` objects. If the `"sarlm"` object is a SEM or SDEM, the Hausman test may be performed by setting `Hausman=TRUE` to see whether the regression coefficients are sufficiently like least squares coefficients, indicating absence of mis-specification from that source.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, echo = TRUE, mysize=TRUE, size='\\tiny'}
+args(summary.sarlm)
+```
+\endcol
+\endcols
+
+## Hausman tests
+
+\begincols
+\begincol{0.48\textwidth}
+As an example, we may fit SEM and SDEM to the 94 and 489 observation Boston data sets, and present the Hausman test results. Here we are using the `control=` list argument to pass through pre-computed eigenvalues for the default `"eigen"` method.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+eigs_489 <- eigenw(lw_q_489)
+SDEM_489 <- errorsarlm(form, data=boston_489, listw=lw_q_489, 
+                       Durbin=TRUE, zero.policy=TRUE, 
+                       control=list(pre_eig=eigs_489))
+SEM_489 <- errorsarlm(form, data=boston_489, listw=lw_q_489, 
+                      zero.policy=TRUE, 
+                      control=list(pre_eig=eigs_489))
+cbind(data.frame(model=c("SEM", "SDEM")), 
+      rbind(broom::tidy(Hausman.test(SEM_489)), 
+            broom::tidy(Hausman.test(SDEM_489))))[,1:4]
+```
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+eigs_94 <- eigenw(lw_q_94)
+SDEM_94 <- errorsarlm(form, data=boston_94, listw=lw_q_94, 
+                      Durbin=TRUE,
+                      control=list(pre_eig=eigs_94))
+SEM_94 <- errorsarlm(form, data=boston_94, listw=lw_q_94, 
+                     control=list(pre_eig=eigs_94))
+cbind(data.frame(model=c("SEM", "SDEM")), 
+      rbind(broom::tidy(Hausman.test(SEM_94)), 
+            broom::tidy(Hausman.test(SDEM_94))))[, 1:4]
+```
+\endcol
+\endcols
+
+## LR tests
+
+\begincols
+\begincol{0.48\textwidth}
+We can use `spatialreg::LR.sarlm()` to apply a likelihood ratio test between nested models, but here choose `lmtest::lrtest()`, which gives the same results, preferring models including spatially lagged covariates.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+suppressWarnings(broom::tidy(lmtest::lrtest(SEM_489, SDEM_489)))
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+suppressWarnings(broom::tidy(lmtest::lrtest(SEM_94, SDEM_94)))
+```
+\endcol
+
+\begincol{0.48\textwidth}
+The SLX model is fitted using least squares, and also returns a log likelihood value, letting us test whether we need a spatial process in the residuals. 
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+SLX_489 <- lmSLX(form, data=boston_489, listw=lw_q_489, 
+                 zero.policy=TRUE)
+suppressWarnings(broom::tidy(lmtest::lrtest(SLX_489, SDEM_489)))
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+SLX_94 <- lmSLX(form, data=boston_94, listw=lw_q_94)
+suppressWarnings(broom::tidy(lmtest::lrtest(SLX_94, SDEM_94)))
+```
+\endcol
+\endcols
+
+
+## LR tests with weights
+
+\begincols
+\begincol{0.48\textwidth}
+This outcome is sustained also when we use the counts of house units by tract and output zones as weights:
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+SLX_94w <- lmSLX(form, data=boston_94, listw=lw_q_94, 
+                 weights=units)
+SDEM_94w <- errorsarlm(form, data=boston_94, listw=lw_q_94, 
+                       Durbin=TRUE, weights=units,
+                       control=list(pre_eig=eigs_94))
+suppressWarnings(broom::tidy(lmtest::lrtest(SLX_94w, SDEM_94w)))
+```
+\endcol
+\endcols
+
+## Impacts
+
+\begincols
+\begincol{0.48\textwidth}
+Since sampling is not required for inference for SLX and SDEM models, linear combination is used for models fitted using maximum likelihood; results are shown here for the air pollution variable only. The literature has not yet resolved the question of how to report model output, as each covariate is now represented by three impacts. Where spatially lagged covariates are included, two coefficients are replaced by three impacts.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+sum_imp_94_SDEM <- summary(impacts(SDEM_94))
+rbind(Impacts=sum_imp_94_SDEM$mat[5,], 
+      SE=sum_imp_94_SDEM$semat[5,])
+```
+\endcol
+
+\begincol{0.48\textwidth}
+In the SLX and SDEM models, the direct impacts are the consequences for the response of changes in air pollution in the same observational entity, and the indirect (local) impacts are the consequences for the response of changes in air pollution in neighbouring observational entities. A recent question: how to correct standard errors for heterscedasticity before linear combination?
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+sum_imp_94_SLX <- summary(impacts(SLX_94))
+rbind(Impacts=sum_imp_94_SLX$mat[5,], 
+      SE=sum_imp_94_SLX$semat[5,])
+```
+\endcol
+\endcols
+
+## Markov chain Monte Carlo 
+
+- The Spatial Econometrics Library is part of the extensive Matlab code repository at https://www.spatial-econometrics.com/ and documented in LeSage and Pace [-@lesage+pace:09]. 
+
+- The Google Summer of Coding project in 2011 by Abhirup Mallik mentored by Virgilio Gómez-Rubio yielded translations of some of the model fitting functions for SEM, SDEM, SLM, SDM, SAC and GNM from the Matlab code. 
+
+- These have now been added to **spatialreg** as `spBreg_err()`, `spBreg_lag()` and `spBreg_sac()` with `Durbin=` arguments to handle the inclusion of spatially lagged covariates. 
+
+- As yet, heteroskedastic disturbances are not accommodated. 
+
+- The functions return `"mcmc"` objects as specified in the **coda** package, permitting the use of tools from **coda** for handling model output. 
+
+## Markov chain Monte Carlo 
+
+\begincols
+\begincol{0.48\textwidth}
+Fitting the SDEM model for the tracts takes about an order of magnitude longer than using ML, but there is more work to do subsequently, and this difference scales more in the number of samples than covariates or observations. The impacts are extracted directly from the samples:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+system.time(SDEM_489B <- spBreg_err(form, data=boston_489, 
+            listw=lw_q_489, Durbin=TRUE, zero.policy=TRUE))
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+sum_imp_498_SDEM_B <- summary(impacts(SDEM_489B))
+rbind(Impacts=sum_imp_498_SDEM_B$mat[5,], 
+      SE=sum_imp_498_SDEM_B$semat[5,])
+```
+\endcol
+
+\begincol{0.48\textwidth}
+In the MCMC case, the gridded log determinants (200 LU decompositions) and sampling takes most time; in the ML case using eigenvalues is taken by log determinant setup and optimization, and by dense matrix asymptotic standard errors:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+t(attr(SDEM_489B, "timings")[ , 3])
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+t(errorsarlm(form, data=boston_489, listw=lw_q_489, Durbin=TRUE, 
+             zero.policy=TRUE)$timings[,2])
+```
+\endcol
+\endcols
+
+
+## Handling the log determinant term
+
+- It has been known for over twenty years that the sparse matrix representation of spatial weights overcomes the difficulties of fitting models with larger numbers of observations using maximum likelihood and MCMC where the log determinant term comes into play [@pace+barry:97a; @pace+barry:97b; @pace+barry:97c; @pace+barry:97d]. 
+
+- During the development of these approaches in model fitting functions in **spatialreg**, use was first made of C code also used in the S-PLUS SpatialStats module [@kaluznyetal:98], then **SparseM** which used a compressed sparse row form very similar to `"nb"` and `"listw"` objects. 
+
+- This was followed by the use of **spam** and **Matrix** methods, both of which mainly use compressed sparse column representations. Details are provided in Bivand, Hauke and Kossowski [-@bivandetal13]. 
+
+- We missed a method given by Martin [-@martin05] which deserves implementation.
+
+## Handling the log determinant term
+
+\begincols
+\begincol{0.48\textwidth}
+The domain of the spatial coefficient(s) is given by the `interval=` argument to model fitting functions, and returned in the fitted object; this case is trivial, because the upper bound is unity by definition, because of the use of row standardization. The interval is the inverse of the range of the eigenvalues of the weights matrix:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+SDEM_94$interval
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+1/range(eigs_94)
+```
+\endcol
+
+\begincol{0.48\textwidth}
+Finding the interval within which to search for the spatial coefficient is trivial for smaller data sets, but more complex for larger ones. It is possible to use heuristics implemented in `lextrW()` [@GRIFFITH2015119]; or `RSpectra::eigs()` after coercion to a **Matrix** package compressed sparse column representation:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+1/c(lextrW(lw_q_94))
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+W <- as(lw_q_94, "CsparseMatrix")
+1/Re(c(RSpectra::eigs(W, k=1, which="SR")$values, 
+       RSpectra::eigs(W, k=1, which="LR")$values))
+```
+\endcol
+\endcols
+
+## Handling the log determinant term
+
+\begincols
+\begincol{0.48\textwidth}
+The baseline log determinant term as given by Ord [-@ord:75] for a coefficient value proposed in sampling or during numerical optimization; this extract matches the `"eigen"` method (with or without `control=list(pre_eig=...)"`):
+Using sparse matrix functions from **Matrix**, the LU decomposition can be used for asymmetric matrices; this extract matches the `"LU"` method:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+coef <- 0.5
+sum(log(1 - coef * eigs_94))
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+I <- Diagonal(nrow(boston_94))
+LU <- lu(I - coef * W)
+dU <- abs(diag(slot(LU, "U")))
+sum(log(dU))
+```
+\endcol
+
+\begincol{0.48\textwidth}
+Cholesky decomposition for symmetric matrices, with `similar.listw()` used to handle asymmetric weights that are similar to symmetric. The default value od `super` allows **Matrix** to choose between supernodal or simplicial decomposition; this extract matches the `"Matrix_J"` method; the `"Matrix"` and `"spam_update"` methods are to be preferred as they pre-compute the fill-reducing permutation of the decomposition since the weights do not change for different values of the coefficient.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+W <- as(similar.listw(lw_q_94), "CsparseMatrix")
+super <- as.logical(NA)
+cch <- Cholesky((I - coef * W), super=super)
+c(2 * determinant(cch, logarithm = TRUE)$modulus)
+```
+\endcol
+\endcols
+
+## Handling the log determinant term
+
+- Maximum likelihood model fitting functions in **spatialreg** and **splm** use `jacobianSetup()` to populate `env=` environment with intermediate objects needed to find log determinants during optimization; **HSAR** uses `mcdet_setup()` to set up Monte Carlo approximation terms.
+
+- Passing environments to objective functions is efficient because they are passed by reference rather than value. 
+
+- As yet the Bayesian models are limited to control argument `ldet_method="SE_classic"` at present, using `"LU"` to generate a coarse grid of control argument `nrho=200L` log determinant values in the interval, spline interpolated to a finer grid of length control argument `interpn=2000L`, from which griddy Gibbs samples are drawn. 
+
+- It is hoped to add facilities to choose alternative methods in the future. This would offer possibilities to move beyond griddy Gibbs, but using gridded log determinant values seems reasonable at present.
+
+## Impacts
+
+\begincols
+\begincol{0.48\textwidth}
+Impacts are calculated using model object class specific `impacts()` methods. In the **sphet** package, the impacts method for `"gstsls"` uses the **spatialreg** `impacts()` framework, as does the **splm** package for `"splm"` fitted model objects. `impacts()` methods require either a `tr=` argument a vector of traces of the power series of the weights object typically computed with `trW()` or a `listw=` argument; the `evalues=` argument is experimental, and takes the eigenvalues of the weights matrix. 
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+args(impacts.sarlm)
+```
+\endcol
+
+\begincol{0.48\textwidth}
+The summary method for the output of `impacts()` methods where inference from samples was requested by default uses the `summary()` method for `"mcmc"` objects defined in the **coda** package. It can instead report just matrices of standard errors, z-values and p-values by setting `zstats=` and `short=` to `TRUE`. Recently it was suggested that CI reporting may be easier to read.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+args(summary.lagImpact)
+```
+\endcol
+\endcols
+
+## Impacts
+
+\begincols
+\begincol{0.48\textwidth}
+In contrast to local indirect impacts in SLX and SDEM models, global indirect impacts are found in models including the spatially lagged response. For purposes of exposition, let us fit an SLM. Traces of the first `m=` matrices of the power series in the spatial weights are pre-computed [@lesage+pace:09]. The `type=` argument is `"mult"` by default.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+SLM_489 <- lagsarlm(form, data=boston_489, listw=lw_q_489, 
+                    zero.policy=TRUE, 
+                    control=list(pre_eig=eigs_489))
+W <- as(lw_q_489, "CsparseMatrix")
+tr_489 <- trW(W)
+str(tr_489)
+```
+\endcol
+
+\begincol{0.48\textwidth}
+In this case, the spatial process in the response is not strong, so the global indirect impacts (here for the air pollution variable) are weak. 
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+SLM_489_imp <- impacts(SLM_489, tr=tr_489, R=2000)
+SLM_489_imp_sum <- summary(SLM_489_imp, short=TRUE, zstats=TRUE)
+res <- rbind(Impacts=sapply(SLM_489_imp$res, "[", 5), 
+             SE=SLM_489_imp_sum$semat[5,])
+colnames(res) <- c("Direct", "Indirect", "Total")
+res
+```
+\endcol
+\endcols
+
+## Impacts
+
+\begincols
+\begincol{0.48\textwidth}
+Of more interest is trying to reconstruct the direct and total impacts using dense matrix methods; the direct global impacts are the mean of the diagonal of the dense impacts matrix, and the total global impacts are the sum of all matrix elements divided by the number of observations. The direct impacts agree, but the total impacts differ slightly.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+coef_SLM_489 <- coef(SLM_489)
+IrW <- Diagonal(489) - coef_SLM_489[1] * W
+S_W <- solve(IrW)
+S_NOX_W <- S_W %*% (diag(489) * coef_SLM_489[7])
+c(Direct=mean(diag(S_NOX_W)), Total=sum(S_NOX_W)/489)
+```
+\endcol
+
+\begincol{0.48\textwidth}
+This bare-bones approach corresponds to using the `listw=` argument, and as expected gives the same output. The experimental `evalues=` approach which is known to be numerically exact by definition gives the same results as the matrix power series trace approach, so the sight difference may be attributed to the consequences of inverting the spatial process matrix.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+sapply(impacts(SLM_489, listw=lw_q_489), "[", 5)
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+sapply(impacts(SLM_489, evalues=eigs_489), "[", 5)
+```
+\endcol
+\endcols
+
+## Predictions and impacts
+
+\begincols
+\begincol{0.48\textwidth}
+We'll use a `predict()` method for `"sarlm"` objects to double-check impacts, here for the pupil-teacher ratio (`PTRATIO`). The method was re-written by Martin Gubri based on Goulard, Laurent and Thomas-Agnan [-@goulardetal:17]. The `pred.type=` argument specifies the prediction strategy among those presented in the article. First we'll increment `PTRATIO` by one to show that, using least squares, the mean difference between predictions from the incremented new data and fitted values is equal to the regression coefficient. 
+\endcol
+
+\begincol{0.48\textwidth}
+In models including the spatially lagged response, and when the spatial coefficient in different from zero, this is not the case in general, and is why we need `impacts()` methods. The difference here is not great, but neither is it zero, and needs to be handled.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+nd_489 <- boston_489
+nd_489$PTRATIO <- nd_489$PTRATIO + 1
+OLS_489 <- lm(form, data=boston_489)
+fitted <- predict(OLS_489)
+nd_fitted <- predict(OLS_489, newdata=nd_489)
+all.equal(unname(coef(OLS_489)[12]), mean(nd_fitted - fitted))
+```
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+fitted <- predict(SLM_489)
+nd_fitted <- predict(SLM_489, newdata=nd_489, listw=lw_q_489, 
+                     pred.type="TS", zero.policy=TRUE)
+(tot <- mean(nd_fitted - fitted))
+impacts(SLM_489, evalues=eigs_489)$total[11]
+all.equal(unname(coef_SLM_489[13]), tot)
+```
+\endcol
+\endcols
+
+## Predictions
+
+\begincols
+\begincol{0.48\textwidth}
+In the Boston tracts data set, 17 observations of median house values, the response, are censored. Using these as an example and comparing some `pred.type=` variants for the SDEM model and predicting out-of-sample, we can see that there are differences, suggesting that this is a fruitful area for study. There have been a number of alternative proposals for handling missing variables [@GOMEZRUBIO2015116; @suesse:18]. 
+Here, we'll list the predictions for the censored tract observations using three different prediction types, taking the exponent to get back to the USD median house values.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+nd <- boston_506[is.na(boston_506$median),]
+t0 <- exp(predict(SDEM_489, newdata=nd, listw=lw_q, 
+                  pred.type="TS", zero.policy=TRUE))
+suppressWarnings(t1  <- exp(predict(SDEM_489, newdata=nd, 
+                                    listw=lw_q, pred.type="KP2",
+                                    zero.policy=TRUE)))
+suppressWarnings(t2  <- exp(predict(SDEM_489, newdata=nd, 
+                                    listw=lw_q, pred.type="KP5",
+                                    zero.policy=TRUE)))
+head(data.frame(fit_TS=t0[,1], fit_KP2=c(t1), fit_KP5=c(t2),
+           censored=boston_506$censored[as.integer(attr(t0, 
+                                                  "region.id"))]))
+```
+\endcol
+\endcols
+
+## Markov random field and multilevel models with spatial weights
+
+\begincols
+\begincol{0.48\textwidth}
+There is a large literature in spatial epidemiology using CAR and ICAR models in spatially structured random effects. These extend to multilevel models, in which the spatially structured random effects may apply at different levels of the model [@bivandetal17a]. 
+\endcol
+
+\begincol{0.48\textwidth}
+The **lme4** package lets us add an IID unstructured random effect at the model output zone level:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+library(lme4)
+MLM <- lmer(update(form, . ~ . + (1 | NOX_ID)), data=boston_487, 
+            REML=FALSE)
+boston_93$MLM_re <- ranef(MLM)[[1]][,1]
+```
+\endcol
+\endcols
+
+## Markov random field and multilevel models with spatial weights
+
+\begincols
+\begincol{0.48\textwidth}
+Two packages, **hglm** and **HSAR**, offer SAR upper level spatially structured random effects, and require the specification of a sparse matrix mapping the upper level enities onto lower level entities, and sparse binary weights matrices:
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+library(Matrix)
+suppressMessages(library(MatrixModels))
+Delta <- as(model.Matrix(~ -1 + as.factor(NOX_ID), data=boston_487, 
+                         sparse=TRUE), "dgCMatrix")
+M <- as(spdep::nb2listw(nb_q_93, style="B"), "CsparseMatrix")
+```
+\endcol
+\endcols
+
+## Markov random field and multilevel models with spatial weights
+
+\begincols
+\begincol{0.48\textwidth}
+The extension of **hglm** to sparse spatial setting extended its facilities [@alam-ronnegard-shen:2015], and also permits the modelling of discrete responses. First we fit an IID random effect:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+suppressPackageStartupMessages(library(hglm))
+y_hglm <- log(boston_487$median)
+X_hglm <- model.matrix(lm(form, data=boston_487))
+suppressWarnings(HGLM_iid <- hglm(y=y_hglm, X=X_hglm, Z=Delta))
+```
+\endcol
+
+\begincol{0.48\textwidth}
+followed by a SAR model at the upper level (corresponding to a spatial error (SEM) model), which reports the spatially structured random effect without fully converging, so coefficient standard errors are not available:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+suppressWarnings(HGLM_sar <- hglm(y=y_hglm, X=X_hglm, Z=Delta, 
+                                  rand.family=SAR(D=M)))
+boston_93$HGLM_re <- unname(HGLM_iid$ranef)
+boston_93$HGLM_ss <- HGLM_sar$ranef[,1]
+```
+\endcol
+\endcols
+
+## Markov random field and multilevel models with spatial weights
+
+\begincols
+\begincol{0.48\textwidth}
+The **HSAR** package is restricted to the Gaussian response case, and fits an upper level SEM using MCMC; if `W=` is a lower level weights matrix, it will also fit a lower level SLM [@dong15; @dongetal15]:
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+library(HSAR)
+suppressWarnings(HSAR <- hsar(form, data=boston_487, W=NULL, 
+                              M=M, Delta=Delta, burnin=500, 
+                              Nsim=2500, thinning=1))
+boston_93$HSAR_ss <- HSAR$Mus[1,]
+```
+\endcol
+\endcols
+
+## Markov random field and multilevel models with spatial weights
+
+\begincols
+\begincol{0.48\textwidth}
+The **R2BayesX** package provides flexible support for structured additive regression models, including spatial multilevel models. The models include an IID unstructured random effect at the upper level using the `"re"` specification [@umlaufetal:15]; we choose the `"MCMC"`method:
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+suppressPackageStartupMessages(library(R2BayesX))
+BX_iid <- bayesx(update(form, . ~ . + sx(NOX_ID, bs="re")), 
+                 family="gaussian", data=boston_487, method="MCMC", 
+                 iterations=12000, burnin=2000, step=2, seed=123)
+boston_93$BX_re <- BX_iid$effects["sx(NOX_ID):re"][[1]]$Mean
+```
+\endcol
+
+\begincol{0.48\textwidth}
+and the `"mrf"` (Markov random field) spatially structured random effect specification based on a graph derived from converting a suitable `"nb"` object for the upper level. The `"region.id"` attribute of the `"nb"` object needs to contain values corresponding the the indexing variable.
+
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+RBX_gra <- nb2gra(nb_q_93)
+BX_mrf <- bayesx(update(form, . ~ . + sx(NOX_ID, bs="mrf", 
+                                         map=RBX_gra)), 
+                 family="gaussian", data=boston_487, 
+                 method="MCMC", iterations=12000, burnin=2000,
+                 step=2, seed=123)
+boston_93$BX_ss <- BX_mrf$effects["sx(NOX_ID):mrf"][[1]]$Mean
+```
+\endcol
+\endcols
+
+## Markov random field and multilevel models with spatial weights
+
+\begincols
+\begincol{0.48\textwidth}
+In a very similar way, `mgcv::gam()` can take an `"mrf"` term using a suitable `"nb"` object for the upper level. In this case the `"nb"` object needs to have the contents of the `"region.id"` attribute copied as the names of the neighbour list components, and the indexing variable needs to be a factor [@wood:17] (the `"REML"` method of `bayesx()` gives the same result here):
+\endcol
+
+\begincol{0.48\textwidth}
+```{r, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+library(mgcv)
+names(nb_q_93) <- attr(nb_q_93, "region.id")
+boston_487$NOX_ID <- as.factor(boston_487$NOX_ID)
+GAM_MRF <- gam(update(form, . ~ . + s(NOX_ID, bs="mrf", 
+                                      xt=list(nb=nb_q_93))),
+               data=boston_487, method="REML")
+preds <- predict(GAM_MRF, type="terms", se=FALSE)[,14]
+boston_93$GAM_ss <- aggregate(preds, list(boston_487$NOX_ID), 
+                              mean)$x
+```
+\endcol
+\endcols
+
+## Markov random field and multilevel models with spatial weights
+
+```{r, echo=FALSE, results='hide', cache=TRUE}
+res <- rbind(iid_lmer=summary(MLM)$coefficients[6, 1:2],
+             iid_hglm=summary(HGLM_iid)$FixCoefMat[6, 1:2], 
+             iid_BX=BX_iid$fixed.effects[6, 1:2], 
+             sar_hsar=c(HSAR$Mbetas[1, 6], HSAR$SDbetas[1, 6]),
+             mrf_BX=BX_mrf$fixed.effects[6, 1:2], 
+             mrf_GAM=c(summary(GAM_MRF)$p.coeff[6], summary(GAM_MRF)$se[6]))
+```
+
+
+\begincols
+\begincol{0.48\textwidth}
+In the cases of `hglm()`, `bayesx()` and `gam()`, we could also model discrete responses without further major difficulty, and `bayesx()` and `gam()` also facilitate the generalization of functional form fitting for included covariates. Unfortunately, the coefficient estimates for the air pollution variable for these multilevel models are not helpful. All remain negative, but the inclusion of the model output zone level effects, be they IID or spatially structured, suggest that it hard to disentangle the influence of the scale of observation from that of covariates observed at that scale.
+\endcol
+
+\begincol{0.48\textwidth}
+```{r plot6, cache=TRUE, echo=FALSE, eval=TRUE, results='hide'}
+suppressPackageStartupMessages(library(ggplot2))
+df_res <- as.data.frame(res)
+names(df_res) <- c("mean", "sd")
+limits <- aes(ymax = mean + qnorm(0.975)*sd, ymin=mean + qnorm(0.025)*sd)
+df_res$model <- row.names(df_res)
+png("sew19-05-23_files/figure-beamer/plot6-1.png", height=600, bg = "transparent")
+p <- ggplot(df_res, aes(y=mean, x=model)) + geom_point() + geom_errorbar(limits) + geom_hline(yintercept = 0, col="#EB811B") + coord_flip()
+p + ggtitle("NOX coefficients and error bars") + theme(plot.background = element_rect(fill = "transparent",colour = NA), legend.background = element_rect(colour = NA, fill = "transparent"))
+dev.off()
+```
+\includegraphics[width=0.8\textwidth]{sew19-05-23_files/figure-beamer/plot6-1.png}
+\endcol
+\endcols
+
+## Markov random field and multilevel models with spatial weights
+
+\begincols
+\begincol{0.48\textwidth}
+```{r plot7, cache=TRUE, echo=FALSE, eval=TRUE, results='hide'}
+library(tmap)
+Sys.setenv(PROJ_LIB="/usr/local/share/proj")
+png("sew19-05-23_files/figure-beamer/plot7-1.png", height=600, bg = "transparent")
+tm_shape(boston_93) + tm_fill(c("MLM_re", "HGLM_re", "BX_re"), midpoint=0, title="IID")  + tm_facets(free.scales=FALSE) + tm_borders(lwd=0.3, alpha=0.4) + tm_layout(panel.labels=c("MLM", "HGLM", "BX"), bg.color="transparent")
+dev.off()
+```
+\includegraphics[width=0.95\textwidth]{sew19-05-23_files/figure-beamer/plot7-1.png}
+\endcol
+
+\begincol{0.48\textwidth}
+```{r plot8, cache=TRUE, echo=FALSE, eval=TRUE, results='hide'}
+Sys.setenv(PROJ_LIB="/usr/local/share/proj")
+png("sew19-05-23_files/figure-beamer/plot8-1.png", height=600, bg = "transparent")
+tm_shape(boston_93) + tm_fill(c("HGLM_ss", "HSAR_ss", "BX_ss", "GAM_ss"), midpoint=0, title="SS")  + tm_facets(free.scales=FALSE) + tm_borders(lwd=0.3, alpha=0.4) + tm_layout(panel.labels=c("HGLM SAR", "HSAR SAR", "BX MRF", "GAM MRF"), bg.color="transparent")
+dev.off()
+```
+\includegraphics[width=0.95\textwidth]{sew19-05-23_files/figure-beamer/plot8-1.png}
+\endcol
+\endcols
+
+
+
+# Conclusions
+
+## Conclusions {.allowframebreaks}
+
+- Progress with the **sf** and **stars** packages, including regular spatio-temporal data structures, continues; proxy access to data via APIs or cloud repositories and raster and vector tiles are of growing importance
+
+- Changes in handling coordinate reference systems through PROJ are continuing, and will impact most work; web mapping depends on knowing the correct CRS of the data
+
+- The legacy shapefile format for vector data should be discontinued as soon as possible, with binary SQLite-based GeoPackage (GPKG) a more robust choice than text-based GeoJSON or GML if PostGIS is not an option
+
+- Visualization does not need to be web mapping; the **tmap** and **cartography** packages provide modern thematic mapping functionality; **ggplot2** also supports `"sf"` objects through `geom_sf()`
+
+- As mentioned repeatedly, **spdep** has been split, and the stubs of modelling functions in **spdep** will shortly be defunct, avoiding confusing namespace clashes
+
+- Comparative studies will continue with regard to **spatialreg** functionality, the next will cover Bayesian SAR and CAR models, and include the **INLA** `"slm"` latent model, as well as first prototypes for `JAGS` and `STAN` through R, for instance using **brms** (avoiding dense matrices is key)
+
+- Other comparisons of spatial neighbours with graph methods, pagerank, and perhaps the Microsoft Space Partition Tree and Graph (SPTAG) algorithm are probably worth following up
+
+- It is possible that models in **spatialreg** should move on from the `"listw"` object for spatial weights to only use sparse matrices defined in the Matrix package; timings need to be checked
+
+- Possibly ML and MCMC fitting methods need to be unified across SLM/SEM/SAC and their Durbin variants to improve maintainability and to ease provision of [\textcolor{mLightBrown}{unit testing}](https://github.com/r-spatial/spdep/issues/30)
+
+- Durbin formula valued arguments have been introduced, but have not yet been properly examined; their use in particular for dummy variables needs attention with consequences for impacts
+
+- The Durbin interface needs to be systematised in **spatialreg** and exposed for use in other packages, especially **splm**
+
+- Work on the **lagsarlmtree** package is needed to expose the SLM/SEM/SAC family also with Durbin terms and impacts
+
+- An important reason for increasing attention on prediction is that it is fundamental for machine learning approaches, in which prediction for validation and test data sets drives model specification choice. 
+
+- The choice of training and other data sets with dependent spatial data remains an open question for ML, and is certainly not as simple as with independent data.
+
+- **pkgdown** documentation is in place for more packages (thanks to [\textcolor{mLightBrown}{Angela Li}](https://github.com/r-spatial/spdep/issues/23)): [\textcolor{mLightBrown}{spdep}](https://r-spatial.github.io/spdep/) and  [\textcolor{mLightBrown}{spatialreg}](https://r-spatial.github.io/spatialreg/)
+
+# Aftermatter
+
+## R's `sessionInfo()` {.allowframebreaks}
+
+```{r, echo=FALSE, results='hide'}
+options(width = 130)
+```
+
+```{r sI, cache=TRUE, echo = TRUE, mysize=TRUE, size='\\tiny'}
+sessionInfo()
+```
+
+## References {.allowframebreaks}
