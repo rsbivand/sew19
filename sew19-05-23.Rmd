@@ -1621,6 +1621,8 @@ dev.off()
 
 - Progress with the **sf** and **stars** packages, including regular spatio-temporal data structures, continues; proxy access to data via APIs or cloud repositories and raster and vector tiles are of growing importance
 
+- Work on **sf** and its use in **stars** is linked to using **Rcpp** to interface external C and C++ libraries; should this be extended to other spatial analysis packages?
+
 - Changes in handling coordinate reference systems through PROJ are continuing, and will impact most work; web mapping depends on knowing the correct CRS of the data
 
 - The legacy shapefile format for vector data should be discontinued as soon as possible, with binary SQLite-based GeoPackage (GPKG) a more robust choice than text-based GeoJSON or GML if PostGIS is not an option
@@ -1629,6 +1631,8 @@ dev.off()
 
 - As mentioned repeatedly, **spdep** has been split, and the stubs of modelling functions in **spdep** will shortly be defunct, avoiding confusing namespace clashes
 
+- Should conditional permutation be added to tests for local spatial autocorrelation in **spdep**
+
 - Comparative studies will continue with regard to **spatialreg** functionality, the next will cover Bayesian SAR and CAR models, and include the **INLA** `"slm"` latent model, as well as first prototypes for `JAGS` and `STAN` through R, for instance using **brms** (avoiding dense matrices is key)
 
 - Other comparisons of spatial neighbours with graph methods, pagerank, and perhaps the Microsoft Space Partition Tree and Graph (SPTAG) algorithm are probably worth following up
@@ -1636,6 +1640,8 @@ dev.off()
 - It is possible that models in **spatialreg** should move on from the `"listw"` object for spatial weights to only use sparse matrices defined in the Matrix package; timings need to be checked
 
 - Possibly ML and MCMC fitting methods need to be unified across SLM/SEM/SAC and their Durbin variants to improve maintainability and to ease provision of [\textcolor{mLightBrown}{unit testing}](https://github.com/r-spatial/spdep/issues/30)
+
+- The `"eigen"` and sparse matrix decomposition methods for computing the log determinant are adequate across the domain, but approximate methods weaken close to bounds, should we worry?
 
 - Durbin formula valued arguments have been introduced, but have not yet been properly examined; their use in particular for dummy variables needs attention with consequences for impacts
 
