@@ -57,7 +57,7 @@ options(width = 50)
 
 ## The `sf` package
 
-- The **sf** package proides the input/output and geometry manipulation functionalities found in **rgdal** and **rgeos**, and an alternative class representation for vector data based on the Simple Features standard [@unitsrj; @RJ-2018-009; @RJ-2018-075]
+- The **sf** package provides the input/output and geometry manipulation functionalities found in **rgdal** and **rgeos**, and an alternative class representation for vector data based on the Simple Features standard [@unitsrj; @RJ-2018-009; @RJ-2018-075]
 
 - The **stars** package adds some facilities for handling spatio-temporal raster and vector data, building in part on work with the **spacetime** package.  
 
@@ -73,11 +73,11 @@ options(width = 50)
 
 - In addition, the representations of spatial/coordinate reference systems are being modernised, leading to breaking changes in most software.
 
-## Visualization packages
+## Other packages; reproducible research
 
  - Newer visualization packages, such as **tmap**, **mapview** and **cartography**, give broader scope for data exploration and communication.  
-
-- A thorough overview of modelling and analysis packages shows the considerable range of approaches now available in contributed packages and other R code present in supplementary material to published papers.  
+ 
+- An overview of modelling and analysis packages shows the considerable range of approaches now available in contributed packages and other R code present in supplementary material to published papers.  
 
 - This provides a helpful mechanism supporting reproducible research and hands-on reviewing in which readers can read the code and scripts used in calculating the results presented in published work.
 
@@ -264,7 +264,7 @@ str(st_coordinates(st_geometry(byb)[[1]]))
 \begincols
 \begincol{0.48\textwidth}
 
-The **sp** package was a child of its time, using S4 formal classes, and the best compromise we then had of positional representation (not arc-node, but hard to handle holes in polygons). If we coerse `byb` to the **sp** representation, we see the formal class structure. Input/output used OGR/GDAL vector drivers in the **rgdal** package, and topological operations used GEOS in the **rgeos** package.
+The **sp** package was a child of its time, using S4 formal classes, and the best compromise we then had of positional representation (not arc-node, but hard to handle holes in polygons). If we coerce `byb` to the **sp** representation, we see the formal class structure. Input/output used OGR/GDAL vector drivers in the **rgdal** package, and topological operations used GEOS in the **rgeos** package.
 
 \endcol
 
@@ -350,7 +350,7 @@ head(st_coordinates(st_geometry(byb_utm)[[1]]), n=1)
 
 \begincols
 \begincol{0.48\textwidth}
-The new **stars** - Scalable, Spatiotemporal Tidy Arrays - package started looking at array structures and has built-in proxy data. Like **sf**, the development of **stars** has been supported by the R Consortium, and **stars** uses the infrastructure of **sf** to use GDAL for input/output and manipulation. In **sf**, the interface to the C++ GDAL library is based on **Rcpp**, which was not available when **rgdal** was written. The [\textcolor{mLightBrown}{LandGIS ESA CCI land cover series}](https://landgis.opengeohub.org/#/?base=Stamen%20(OpenStreetMap)&center=60.4478,5.3352&zoom=11&opacity=80&layer=lcv_land.cover_esacci.lc.l4_c&time=2015) may be downloaded (API coming), and displayed.
+The new **stars** - Scalable, Spatio-temporal Tidy Arrays - package started looking at array structures and has built-in proxy data. Like **sf**, the development of **stars** has been supported by the R Consortium, and **stars** uses the infrastructure of **sf** to use GDAL for input/output and manipulation. In **sf**, the interface to the C++ GDAL library is based on **Rcpp**, which was not available when **rgdal** was written. The [\textcolor{mLightBrown}{LandGIS ESA CCI land cover series}](https://landgis.opengeohub.org/#/?base=Stamen%20(OpenStreetMap)&center=60.4478,5.3352&zoom=11&opacity=80&layer=lcv_land.cover_esacci.lc.l4_c&time=2015) may be downloaded (API coming), and displayed.
 \endcol
 
 \begincol{0.48\textwidth}
@@ -522,7 +522,7 @@ args(nb2listw)
 
 \begincols
 \begincol{0.48\textwidth}
-We will be using the helper function `spweights.constants()` below to show some consequences of varing style choices. It returns constants for a `listw` object, $n$ is the number of observations, `n1` to `n3` are $n-1, \ldots$, `nn` is $n^2$ and $S_0$, $S_1$ and $S_2$ are constants, $S_0$ being the sum of the weights. There is a full discussion of the constants in Bivand and Wong [-@Bivand2018].
+We will be using the helper function `spweights.constants()` below to show some consequences of varying style choices. It returns constants for a `listw` object, $n$ is the number of observations, `n1` to `n3` are $n-1, \ldots$, `nn` is $n^2$ and $S_0$, $S_1$ and $S_2$ are constants, $S_0$ being the sum of the weights. There is a full discussion of the constants in Bivand and Wong [-@Bivand2018].
 \endcol
 
 \begincol{0.48\textwidth}
@@ -655,7 +655,7 @@ if (broom_ok) (tmtr <- broom::tidy(mtr)[,1:4]) else (tmtr <- glance_htest(mtr))
 
 \begincols
 \begincol{0.48\textwidth}
-The PySAL **esda** package contains the `Moran` function reporting the same results, here under randomisation. The function returns results under normality, randomisation and by permutation simulation. Similar compatisons may be made for other global measures; for details see Bivand and Wong [-@Bivand2018].
+The PySAL **esda** package contains the `Moran` function reporting the same results, here under randomisation. The function returns results under normality, randomisation and by permutation simulation. Similar comparisons may be made for other global measures; for details see Bivand and Wong [-@Bivand2018].
 \endcol
 
 \begincol{0.48\textwidth}
@@ -1445,7 +1445,7 @@ boston_93$MLM_re <- ranef(MLM)[[1]][,1]
 
 \begincols
 \begincol{0.48\textwidth}
-Two packages, **hglm** and **HSAR**, offer SAR upper level spatially structured random effects, and require the specification of a sparse matrix mapping the upper level enities onto lower level entities, and sparse binary weights matrices:
+Two packages, **hglm** and **HSAR**, offer SAR upper level spatially structured random effects, and require the specification of a sparse matrix mapping the upper level entities onto lower level entities, and sparse binary weights matrices:
 \endcol
 
 \begincol{0.48\textwidth}
